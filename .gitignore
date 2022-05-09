@@ -1,0 +1,12 @@
+*
+!.gitignore
+!*.cabal
+!hie.yaml
+!*.nix
+!flake.lock
+!/src
+!/src/*
+!/test
+!/app
+!*.hs
+!LICENCE
