@@ -8,15 +8,13 @@ import Debug.Trace (trace)
 import GHC.Generics
 import GHC.OverloadedLabels (IsLabel)
 import GQL.AST
+import GQL.Lexer (identifierChars, identifierFirstChars)
 import Numeric.Natural (Natural)
 import Test.QuickCheck
 
-letters = ['a' .. 'z'] <> ['A' .. 'Z']
-numbers = ['0' .. '9']
-
-randomWord = sized $ \n -> do
+randomWord xs = sized $ \n -> do
     k <- chooseInt (1, n)
-    replicateM k $ elements $ letters <> numbers
+    replicateM k $ elements xs
 
 instance Arbitrary Query where
     arbitrary = sized $ \n ->
@@ -97,10 +95,10 @@ instance Arbitrary PathTerm where
 
 instance Arbitrary Path where
     arbitrary = sized $ \n ->
-            oneof $
-                if n < 2
-                    then one
-                    else map (resize $ n `div` 2) two
+        oneof $
+            if n < 2
+                then one
+                else map (resize $ n `div` 2) two
       where
         one = [PathNode <$> arbitrary]
         two = one <> [PathEdge <$> arbitrary <*> arbitrary <*> arbitrary]
@@ -210,11 +208,11 @@ instance Arbitrary Value where
             [ TruthValue <$> arbitrary
             , Int <$> arbitrary
             , Float <$> arbitrary
-            , StringLiteral <$> randomWord
+            , StringLiteral <$> randomWord identifierChars
             ]
 
 instance Arbitrary Identifier where
-    arbitrary = Identifier <$> ((:) <$> elements letters <*> randomWord)
+    arbitrary = Identifier <$> ((:) '_' <$> randomWord identifierChars)
 
 instance Arbitrary a => Arbitrary (NonEmpty a) where
     arbitrary = sized $ \n ->

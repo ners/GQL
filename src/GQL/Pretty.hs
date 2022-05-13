@@ -83,7 +83,7 @@ instance Pretty ReturnStatement where
 
 instance Pretty ReturnList where
     pretty Asterisk = "*"
-    pretty (ReturnList rl) = prettyPrintNEList "1," rl
+    pretty (ReturnList rl) = prettyPrintNEList "," rl
 
 instance Pretty ReturnItem where
     pretty (ReturnItem e n) = pretty e <> maybeAppend " AS " n
@@ -92,7 +92,7 @@ instance Pretty FocusedMatchClause where
     pretty (From g c) = "FROM " <> pretty g <> " " <> prettyPrintNEList " " c
 
 instance Pretty MatchClause where
-    pretty (Match om pp wc) = maybePrepend om " " <> "MATCH " <> prettyPrintNEList "2," pp <> maybeAppend " " wc
+    pretty (Match om pp wc) = maybePrepend om " " <> "MATCH " <> prettyPrintNEList ", " pp <> maybeAppend " " wc
 
 instance Pretty OptionalOrMandatory where
     pretty Optional = "OPTIONAL"
@@ -160,7 +160,7 @@ instance Pretty Len where
 
 instance Pretty Quantifier where
     pretty (Quantifier n) = pretty n
-    pretty (CommaQuantifier n1 n2) = pretty n1 <> "4," <> pretty n2
+    pretty (CommaQuantifier n1 n2) = pretty n1 <> "," <> pretty n2
 
 instance Pretty WhereClause where
     pretty (Where e) = "\n  WHERE " <> pretty e

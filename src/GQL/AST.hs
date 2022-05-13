@@ -102,7 +102,9 @@ newtype PathPatternExpression = PathPatternExpression (NonEmpty PathTerm)
 -- pathTerm
 --     : path
 -- //    | LEFT_PAREN pathPattern whereClause? RIGHT_PAREN len?
-data PathTerm = PathTermPath Path | PathTermPattern PathPattern (Maybe WhereClause) (Maybe Len)
+data PathTerm
+    = PathTermPath Path
+    | PathTermPattern PathPattern (Maybe WhereClause) (Maybe Len)
     deriving (Show, Eq)
 
 -- path

@@ -5,7 +5,7 @@ import Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
 import qualified Control.Monad.Combinators.NonEmpty as NonEmpty
 import Data.Foldable (asum)
 import Data.List.NonEmpty (NonEmpty)
-import Data.Text (Text, unpack)
+import Data.Text (Text, pack, unpack)
 import Debug.Trace
 import GHC.Read (choose)
 import GQL.AST
@@ -20,7 +20,7 @@ query :: Parser Query
 query = do
     trace "parsing query" $ do
         qe <- queryExpression
-        choice 
+        choice
             [ Conjunction qe <$> setOperator <*> query
             , symbolOtherwise >> Otherwise qe <$> queryExpression
             , pure $ Query qe
@@ -35,12 +35,14 @@ queryExpression =
             ]
 
 focusedMatchClause :: Parser FocusedMatchClause
-focusedMatchClause = trace "parsing focusedMatchClause" $ symbolFrom >> From <$> graphName <*> NonEmpty.some matchClause
+focusedMatchClause =
+    trace "parsing focusedMatchClause" $
+        symbolFrom >> From <$> graphName <*> NonEmpty.some matchClause
 
 matchClause :: Parser MatchClause
 matchClause =
     trace "parsing matchClause" $
-        Match <$> optional optionalOrMandatory <*> (symbolMatch >> NonEmpty.some pathPattern) <*> optional whereClause
+        Match <$> optional optionalOrMandatory <*> (symbolMatch >> NonEmpty.sepBy1 pathPattern symbolComma) <*> optional whereClause
 
 optionalOrMandatory :: Parser OptionalOrMandatory
 optionalOrMandatory =
@@ -92,23 +94,22 @@ pathTerm =
     trace "parsing pathTerm" $
         choice
             [ try pathTermPattern
-            , PathTermPath <$> path
+            , pathTermPath
             ]
   where
-    pathTermPattern = do
-        (pathPattern, whereClause) <- betweenParens $ do
-            pathPattern <- pathPattern
-            whereClause <- optional whereClause
-            return (pathPattern, whereClause)
+    pathTermPattern = trace "parsing pathTermPattern" $ do
+        (pathPattern, whereClause) <- betweenParens $ (,) <$> pathPattern <*> optional whereClause
         len <- optional len
         return $ PathTermPattern pathPattern whereClause len
+    pathTermPath = trace "parsing pathTermPath" $ PathTermPath <$> path
 
 path :: Parser Path
 path =
-    trace "parsing path" $
+    trace "parsing path" $ do
+        filler <- betweenParens elementPatternFiller
         choice
-            [ try $ PathEdge <$> betweenParens elementPatternFiller <*> edgePattern <*> path
-            , PathNode <$> betweenParens elementPatternFiller
+            [ PathEdge filler <$> edgePattern <*> path
+            , pure $ PathNode filler
             ]
 
 edgePattern :: Parser EdgePattern
@@ -124,7 +125,9 @@ edgePatternInner =
             ]
 
 elementPatternFiller :: Parser ElementPatternFiller
-elementPatternFiller = trace "parsing elementPatternFiller" $ ElementPatternFiller <$> optional elementVariable <*> optional isLabelExpr <*> optional (betweenBraces propertyList)
+elementPatternFiller =
+    trace "parsing elementPatternFiller" $
+        ElementPatternFiller <$> optional elementVariable <*> optional isLabelExpr <*> optional (betweenBraces propertyList)
 
 propertyList :: Parser PropertyList
 propertyList = trace "parsing propertyList" $ PropertyList <$> NonEmpty.sepBy1 keyExprPair symbolComma
@@ -139,9 +142,12 @@ setOperator :: Parser SetOperator
 setOperator =
     trace "parsing setOperator" $
         choice
-            [ symbolUnion >> UnionQuantifier <$> setQuantifier
-            , symbolUnion >> symbolMax >> pure UnionMax
-            , symbolUnion >> pure Union
+            [ symbolUnion
+                >> choice
+                    [ UnionQuantifier <$> setQuantifier
+                    , UnionMax <$ symbolMax
+                    , pure Union
+                    ]
             , symbolExcept >> Except <$> optional setQuantifier
             , symbolIntersect >> Intersect <$> optional setQuantifier
             ]
@@ -173,10 +179,10 @@ expr =
             ,
                 [ InfixL (Eq <$ symbolEq)
                 , InfixL (Neq <$ symbolNeq)
+                , InfixL (Geq <$ symbolGeq)
+                , InfixL (Leq <$ symbolLeq)
                 , InfixL (Gt <$ symbolGt)
                 , InfixL (Lt <$ symbolLt)
-                , InfixL (Geq <$ symbolGt)
-                , InfixL (Leq <$ symbolLt)
                 ]
             , [Postfix $ symbolIs >> isOrNot]
             ]
@@ -248,9 +254,12 @@ value =
             ]
 
 identifier :: Parser Identifier
-identifier = do
-    ident <- lexeme $ ((:) <$> letterChar <*> many alphaNumChar)
-    trace ("parsing identifier: " <> ident) $ return $ Identifier ident
+identifier =
+    try $ do
+        ident <- lexeme $ (:) <$> oneOf identifierFirstChars <*> many (oneOf identifierChars)
+        case parseMaybe keyword $ pack ident of
+            Just keyword -> fail $ "keyword " <> unpack keyword <> " cannot be an identifier"
+            Nothing -> trace ("parsing identifier: " <> ident) $ return $ Identifier ident
 
 key :: Parser Key
 key = trace "parsing key" identifier

@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty (NonEmpty (..), fromList)
 import Data.Text (pack, unpack)
 import qualified Data.Text.Lazy as TL
 import Debug.Trace
@@ -20,8 +20,10 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Pretty.Simple (pShow, pShowNoColor)
 
+pshow :: Pretty a => a -> String
 pshow = unpack . renderStrict . layoutPretty defaultLayoutOptions . pretty
 
+pshow' :: Show a => a -> String
 pshow' = TL.unpack . pShowNoColor
 
 parsePrettyQuery :: Query -> Result
@@ -31,15 +33,8 @@ parsePrettyQuery q = do
         Right q' ->
             if q' == q
                 then succeeded
-                else failed{reason = unlines ["Could not equate", pshow q, pshow' q, "with", pshow q', show q']}
+                else failed{reason = unlines ["Could not equate", pshow q, "with", pshow q', show q, show q']}
         Left err -> failed{reason = unlines [errorBundlePretty err, unpack qStr]}
 
 main :: IO ()
-main = do
-    parseTest (sc >> query <* eof) "\
-    \MANDATORY MATCH WALK (IS C)    \
-    \    WHERE qY                   \    
-    \    RETURN ALL *               \
-    \"
-    --quickCheck parsePrettyQuery
-    
+main = quickCheck parsePrettyQuery
